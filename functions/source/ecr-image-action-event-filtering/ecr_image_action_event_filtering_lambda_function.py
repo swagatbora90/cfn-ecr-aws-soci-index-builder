@@ -40,6 +40,12 @@ def lambda_handler(event, context):
     image_digest = event['detail']['image-digest']
     image_tag = event['detail'].get('image-tag',"")
 
+    # For SOCi V2, we create a new image index and tag it with a "-soci" suffix tag.
+    # This repo tag generates a new PUSH event and will retrigger the soci index builder.
+    # To prevent this recursive processing, skip image tag that contains "soci"
+    if "soci" in image_tag:
+        return log_and_generate_response(200, f'Skipping image "{repository_name}:{image_tag}" as it contains "soci" in the tag name')
+
     try:
         soci_repository_image_tag_filters = os.environ['soci_repository_image_tag_filters'].split(",")
     except:

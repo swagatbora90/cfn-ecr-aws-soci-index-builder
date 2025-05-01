@@ -33,13 +33,14 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// TODO: Remove this once the SOCI library exports this error.
+// ErrEmptyIndex is now exported by the SOCI library, but we keep our own definition for backward compatibility
 var (
 	ErrEmptyIndex = errors.New("no ztocs created, all layers either skipped or produced errors")
 )
 
 const (
 	BuildFailedMessage          = "SOCI index build error"
+	TagFailedMessage            = "SOCI V2 OCI Image tag error"
 	PushFailedMessage           = "SOCI index push error"
 	SkipPushOnEmptyIndexMessage = "Skipping pushing SOCI index as it does not contain any zTOCs"
 	BuildAndPushSuccessMessage  = "Successfully built and pushed SOCI index"
@@ -48,27 +49,56 @@ const (
 	artifactsDbName    = "artifacts.db"
 )
 
+// Define custom context key types to avoid collisions
+type contextKey string
+
+const (
+	RegistryURLKey     contextKey = "RegistryURL"
+	RepositoryNameKey  contextKey = "RepositoryName"
+	ImageDigestKey     contextKey = "ImageDigest"
+	ImageTagKey        contextKey = "ImageTag"
+	SOCIIndexDigestKey contextKey = "SOCIIndexDigest"
+)
+
 func HandleRequest(ctx context.Context, event events.ECRImageActionEvent) (string, error) {
 	ctx, err := validateEvent(ctx, event)
 	if err != nil {
 		return lambdaError(ctx, "ECRImageActionEvent validation error", err)
 	}
 
+	// Get the SOCI index version from environment variable
+	sociIndexVersion := os.Getenv("soci_index_version")
+	log.Info(ctx, fmt.Sprintf("Using SOCI index version: %s", sociIndexVersion))
+
 	repo := event.Detail.RepositoryName
 	digest := event.Detail.ImageDigest
 	registryUrl := buildEcrRegistryUrl(event)
-	ctx = context.WithValue(ctx, "RegistryURL", registryUrl)
+	ctx = context.WithValue(ctx, RegistryURLKey, registryUrl)
 
 	registry, err := registryutils.Init(ctx, registryUrl)
 	if err != nil {
 		return lambdaError(ctx, "Remote registry initialization error", err)
 	}
 
-	err = registry.ValidateImageManifest(ctx, repo, digest)
+	err = registry.ValidateImageDigest(ctx, repo, digest, sociIndexVersion)
 	if err != nil {
 		log.Warn(ctx, fmt.Sprintf("Image manifest validation error: %v", err))
 		// Returning a non error to skip retries
 		return "Exited early due to manifest validation error", nil
+	}
+
+	// For V2, only convert images that have a tag and tag the newly generated image index
+	var tag string
+	if sociIndexVersion == "V2" {
+		// Get the original image tag if available
+		originalTag, ok := ctx.Value(ImageTagKey).(string)
+		if !ok || originalTag == "" {
+			log.Info(ctx, "Skipping SOCI index generation for V2 as image has no tag")
+			return "Skipped SOCI index generation for V2 as image has no tag", nil
+		}
+
+		tag = originalTag + "-soci"
+		log.Info(ctx, fmt.Sprintf("Using original image tag with suffix: %s", tag))
 	}
 
 	// Directory in lambda storage to store images and SOCI artifacts
@@ -101,7 +131,7 @@ func HandleRequest(ctx context.Context, event events.ECRImageActionEvent) (strin
 		Target: *desc,
 	}
 
-	indexDescriptor, err := buildIndex(ctx, dataDir, sociStore, image)
+	indexDescriptor, err := buildIndex(ctx, dataDir, sociStore, image, sociIndexVersion)
 	if err != nil {
 		if err.Error() == ErrEmptyIndex.Error() {
 			log.Warn(ctx, SkipPushOnEmptyIndexMessage)
@@ -109,9 +139,10 @@ func HandleRequest(ctx context.Context, event events.ECRImageActionEvent) (strin
 		}
 		return lambdaError(ctx, BuildFailedMessage, err)
 	}
-	ctx = context.WithValue(ctx, "SOCIIndexDigest", indexDescriptor.Digest.String())
 
-	err = registry.Push(ctx, sociStore, *indexDescriptor, repo)
+	ctx = context.WithValue(ctx, SOCIIndexDigestKey, indexDescriptor.Digest.String())
+
+	err = registry.Push(ctx, sociStore, *indexDescriptor, repo, tag)
 	if err != nil {
 		return lambdaError(ctx, PushFailedMessage, err)
 	}
@@ -125,25 +156,25 @@ func validateEvent(ctx context.Context, event events.ECRImageActionEvent) (conte
 	var errors []error
 
 	if event.Source != "aws.ecr" {
-		errors = append(errors, fmt.Errorf("The event's 'source' must be 'aws.ecr'"))
+		errors = append(errors, fmt.Errorf("the event's 'source' must be 'aws.ecr'"))
 	}
 	if event.Account == "" {
-		errors = append(errors, fmt.Errorf("The event's 'account' must not be empty"))
+		errors = append(errors, fmt.Errorf("the event's 'account' must not be empty"))
 	}
 	if event.DetailType != "ECR Image Action" {
-		errors = append(errors, fmt.Errorf("The event's 'detail-type' must be 'ECR Image Action'"))
+		errors = append(errors, fmt.Errorf("the event's 'detail-type' must be 'ECR Image Action'"))
 	}
 	if event.Detail.ActionType != "PUSH" {
-		errors = append(errors, fmt.Errorf("The event's 'detail.action-type' must be 'PUSH'"))
+		errors = append(errors, fmt.Errorf("the event's 'detail.action-type' must be 'PUSH'"))
 	}
 	if event.Detail.Result != "SUCCESS" {
-		errors = append(errors, fmt.Errorf("The event's 'detail.result' must be 'SUCCESS'"))
+		errors = append(errors, fmt.Errorf("the event's 'detail.result' must be 'SUCCESS'"))
 	}
 	if event.Detail.RepositoryName == "" {
-		errors = append(errors, fmt.Errorf("The event's 'detail.repository-name' must not be empty"))
+		errors = append(errors, fmt.Errorf("the event's 'detail.repository-name' must not be empty"))
 	}
 	if event.Detail.ImageDigest == "" {
-		errors = append(errors, fmt.Errorf("The event's 'detail.image-digest' must not be empty"))
+		errors = append(errors, fmt.Errorf("the event's 'detail.image-digest' must not be empty"))
 	}
 
 	validAccountId, err := regexp.MatchString(`[0-9]{12}`, event.Account)
@@ -151,7 +182,7 @@ func validateEvent(ctx context.Context, event events.ECRImageActionEvent) (conte
 		errors = append(errors, err)
 	}
 	if !validAccountId {
-		errors = append(errors, fmt.Errorf("The event's 'account' must be a valid AWS account ID"))
+		errors = append(errors, fmt.Errorf("the event's 'account' must be a valid AWS account ID"))
 	}
 
 	validRepositoryName, err := regexp.MatchString(`(?:[a-z0-9]+(?:[._-][a-z0-9]+)*/)*[a-z0-9]+(?:[._-][a-z0-9]+)*`, event.Detail.RepositoryName)
@@ -159,9 +190,9 @@ func validateEvent(ctx context.Context, event events.ECRImageActionEvent) (conte
 		errors = append(errors, err)
 	}
 	if validRepositoryName {
-		ctx = context.WithValue(ctx, "RepositoryName", event.Detail.RepositoryName)
+		ctx = context.WithValue(ctx, RepositoryNameKey, event.Detail.RepositoryName)
 	} else {
-		errors = append(errors, fmt.Errorf("The event's 'detail.repository-name' must be a valid repository name"))
+		errors = append(errors, fmt.Errorf("the event's 'detail.repository-name' must be a valid repository name"))
 	}
 
 	validImageDigest, err := regexp.MatchString(`[[A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][A-Fa-f0-9]{32,}`, event.Detail.ImageDigest)
@@ -169,9 +200,9 @@ func validateEvent(ctx context.Context, event events.ECRImageActionEvent) (conte
 		errors = append(errors, err)
 	}
 	if validImageDigest {
-		ctx = context.WithValue(ctx, "ImageDigest", event.Detail.ImageDigest)
+		ctx = context.WithValue(ctx, ImageDigestKey, event.Detail.ImageDigest)
 	} else {
-		errors = append(errors, fmt.Errorf("The event's 'detail.image-digest' must be a valid image digest"))
+		errors = append(errors, fmt.Errorf("the event's 'detail.image-digest' must be a valid image digest"))
 	}
 
 	// missing/empty tag is OK
@@ -181,9 +212,9 @@ func validateEvent(ctx context.Context, event events.ECRImageActionEvent) (conte
 			errors = append(errors, err)
 		}
 		if validImageTag {
-			ctx = context.WithValue(ctx, "ImageTag", event.Detail.ImageTag)
+			ctx = context.WithValue(ctx, ImageTagKey, event.Detail.ImageTag)
 		} else {
-			errors = append(errors, fmt.Errorf("The event's 'detail.image-tag' must be empty or a valid image tag"))
+			errors = append(errors, fmt.Errorf("the event's 'detail.image-tag' must be empty or a valid image tag"))
 		}
 	}
 
@@ -243,7 +274,7 @@ func setDeadline(ctx context.Context, quitChannel chan int, dataDir string) {
 			select {
 			case <-timeoutChannel:
 				cleanUp(ctx, dataDir)
-				log.Error(ctx, "Invocation timeout error", fmt.Errorf("Invocation timeout after 14 minutes and 50 seconds"))
+				log.Error(ctx, "Invocation timeout error", fmt.Errorf("invocation timeout after 14 minutes and 50 seconds"))
 				return
 			case <-quitChannel:
 				return
@@ -264,7 +295,9 @@ func initSociStore(ctx context.Context, dataDir string) (*store.SociStore, error
 	// expects a store.Store, an interface that extends the oci.Store to provide support
 	// for garbage collection.
 	ociStore, err := oci.NewWithContext(ctx, path.Join(dataDir, artifactsStoreName))
-	return &store.SociStore{ociStore}, err
+	return &store.SociStore{
+		ociStore,
+	}, err
 }
 
 // Init a new instance of SOCI artifacts DB
@@ -278,9 +311,9 @@ func initSociArtifactsDb(dataDir string) (*soci.ArtifactsDb, error) {
 }
 
 // Build soci index for an image and returns its ocispec.Descriptor
-func buildIndex(ctx context.Context, dataDir string, sociStore *store.SociStore, image images.Image) (*ocispec.Descriptor, error) {
+func buildIndex(ctx context.Context, dataDir string, sociStore *store.SociStore, image images.Image, sociIndexVersion string) (*ocispec.Descriptor, error) {
 	log.Info(ctx, "Building SOCI index")
-	platform := platforms.DefaultSpec() // TODO: make this a user option
+	platform := platforms.DefaultSpec()
 
 	artifactsDb, err := initSociArtifactsDb(dataDir)
 	if err != nil {
@@ -291,38 +324,47 @@ func buildIndex(ctx context.Context, dataDir string, sociStore *store.SociStore,
 	if err != nil {
 		return nil, err
 	}
+	builderOpts := []soci.BuilderOption{
+		//soci.WithMinLayerSize(0),
+		soci.WithBuildToolIdentifier("AWS SOCI CLI v0.2"),
+		soci.WithArtifactsDb(artifactsDb),
+	}
 
-	builder, err := soci.NewIndexBuilder(containerdStore, sociStore, artifactsDb, soci.WithPlatform(platform))
+	builder, err := soci.NewIndexBuilder(containerdStore, sociStore, builderOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	// Build the SOCI index
-	index, err := builder.Build(ctx, image)
-	if err != nil {
-		return nil, err
-	}
+	// Build the SOCI index based on the specified version
+	if sociIndexVersion == "V2" {
+		// Use Convert() for V2 index generation
+		convertedOCIIndex, err := builder.Convert(ctx, image, soci.ConvertWithPlatforms(platform))
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert OCI index: %w", err)
+		}
+		fmt.Printf("Generated OCI Index Digest: %s\n", convertedOCIIndex.Digest.String())
+		return convertedOCIIndex, nil
+	} else {
+		// Default to Build() for V1 index generation
+		generatedSOCIIndex, err := builder.Build(ctx, image, soci.WithPlatform(platform))
+		if err != nil {
+			return nil, fmt.Errorf("failed to build SOCI index: %w", err)
+		}
+		fmt.Printf("Generated SOCI Index Digest: %s\n", generatedSOCIIndex.ImageDesc.Digest.String())
+		// Get SOCI indices for the image from the OCI store
+		indexDescriptorInfos, _, err := soci.GetIndexDescriptorCollection(ctx, containerdStore, artifactsDb, image, []ocispec.Platform{platform})
+		if err != nil {
+			return nil, err
+		}
+		if len(indexDescriptorInfos) == 0 {
+			return nil, errors.New("no SOCI indices found in OCI store")
+		}
+		sort.Slice(indexDescriptorInfos, func(i, j int) bool {
+			return indexDescriptorInfos[i].CreatedAt.Before(indexDescriptorInfos[j].CreatedAt)
+		})
 
-	// Write the SOCI index to the OCI store
-	err = soci.WriteSociIndex(ctx, index, sociStore, artifactsDb)
-	if err != nil {
-		return nil, err
+		return &indexDescriptorInfos[len(indexDescriptorInfos)-1].Descriptor, nil
 	}
-
-	// Get SOCI indices for the image from the OCI store
-	// TODO: consider making soci's WriteSociIndex to return the descriptor directly
-	indexDescriptorInfos, _, err := soci.GetIndexDescriptorCollection(ctx, containerdStore, artifactsDb, image, []ocispec.Platform{platform})
-	if err != nil {
-		return nil, err
-	}
-	if len(indexDescriptorInfos) == 0 {
-		return nil, errors.New("No SOCI indices found in OCI store")
-	}
-	sort.Slice(indexDescriptorInfos, func(i, j int) bool {
-		return indexDescriptorInfos[i].CreatedAt.Before(indexDescriptorInfos[j].CreatedAt)
-	})
-
-	return &indexDescriptorInfos[len(indexDescriptorInfos)-1].Descriptor, nil
 }
 
 // Log and return the lambda handler error
