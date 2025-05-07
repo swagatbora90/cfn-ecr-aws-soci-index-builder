@@ -1,0 +1,40 @@
+<div class="version-selector">
+  <label for="version-select">Documentation Version:</label>
+  <select id="version-select" onchange="window.location.href=this.value">
+    <option value="/" id="latest-option">Latest (V2)</option>
+    <option value="/v1/" id="v1-option">V1</option>
+    <option value="/v2/" id="v2-option">V2</option>
+  </select>
+</div>
+
+<script>
+  // Set the correct option based on current path
+  document.addEventListener('DOMContentLoaded', function() {
+    const path = window.location.pathname;
+    const select = document.getElementById('version-select');
+    
+    if (path.startsWith('/v1/')) {
+      document.getElementById('v1-option').selected = true;
+    } else if (path.startsWith('/v2/')) {
+      document.getElementById('v2-option').selected = true;
+    } else {
+      document.getElementById('latest-option').selected = true;
+    }
+  });
+</script>
+
+<style>
+  .version-selector {
+    margin: 20px 0;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    display: inline-block;
+  }
+  
+  .version-selector select {
+    margin-left: 10px;
+    padding: 5px;
+    border-radius: 3px;
+  }
+</style>
