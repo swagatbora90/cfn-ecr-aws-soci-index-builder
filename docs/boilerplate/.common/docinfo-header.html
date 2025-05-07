@@ -1,0 +1,44 @@
+<div class="version-selector">
+  <select id="version-select" onchange="window.location.href=this.value">
+    <option value="" id="latest-option">Latest (V2)</option>
+    <option value="" id="v1-option">V1</option>
+  </select>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const path = window.location.pathname;
+    const latestOption = document.getElementById('latest-option');
+    const v1Option = document.getElementById('v1-option');
+
+    // If we're in the v1 directory
+    if (path.includes('/v1/')) {
+      v1Option.selected = true;
+      latestOption.value = "../";
+      v1Option.value = "./";
+    }
+    // If we're in the main directory
+    else {
+      latestOption.selected = true;
+      latestOption.value = "./";
+      v1Option.value = "./v1/";
+    }
+  });
+</script>
+
+<style>
+  .version-selector {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    z-index: 1000;
+  }
+
+  .version-selector select {
+    padding: 3px 5px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    border: 1px solid #ccc;
+    background-color: #f8f9fa;
+  }
+</style>
