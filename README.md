@@ -14,8 +14,8 @@ The AWS SOCI Index Builder solution consists of the following components:
 
 The solution supports two versions of SOCI index:
 
-- **V1**: The original SOCI index format
-- **V2**: An improved format that provides better performance and reduced storage requirements
+- **V1**: The original SOCI index format based on the OCI referrers API
+- **V2**: An improved format that attaches the SOCI index to an image directly
 
 ## Configuration Parameters
 
@@ -31,8 +31,26 @@ Examples:
 ### SociIndexVersion
 
 The version of SOCI index to generate:
-- `V1`: The original SOCI index format
-- `V2`: Improved format with better performance and reduced storage requirements
+- `V1`: Original SOCI Index format
+- `V2`: Latest SOCI Index format (Recommended)
+
+### Taskcat Configuration
+
+The solution uses taskcat for testing CloudFormation deployments across multiple regions. The `.taskcat.yml` file configurable options:
+
+- **Regions**: List of AWS regions where you want to deploy the stack
+- **SociRepositoryImageTagFilters**: Filter pattern for ECR repositories and image tags
+
+Example configuration:
+```yaml
+regions:
+  - us-east-1
+  - us-west-2
+  - eu-west-1
+
+parameters:
+  SociRepositoryImageTagFilters: "*:*"
+```
 
 ## How It Works
 
@@ -43,4 +61,3 @@ The version of SOCI index to generate:
    - Pulls the image from ECR
    - Generates SOCI index artifacts using the specified version (V1 or V2)
    - Pushes the SOCI index artifacts back to ECR
-

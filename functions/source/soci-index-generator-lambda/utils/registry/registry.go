@@ -22,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
 	"github.com/awslabs/soci-snapshotter/soci/store"
+	"github.com/containerd/containerd/images"
 
 	"slices"
 
@@ -130,9 +131,9 @@ func (registry *Registry) HeadManifest(ctx context.Context, repositoryName strin
 	return descriptor, nil
 }
 
-// Call registry's FetchReference and return the image's reference
+// Call registry's getManifest and return the image's manifest
 // The image reference must be a digest because that's what oras-go FetchReference takes
-func (registry *Registry) GetDigest(ctx context.Context, repositoryName string, digest string) (ocispec.Manifest, error) {
+func (registry *Registry) GetManifest(ctx context.Context, repositoryName string, digest string) (ocispec.Manifest, error) {
 	repo, err := registry.registry.Repository(ctx, repositoryName)
 	var manifest ocispec.Manifest
 	if err != nil {
@@ -159,19 +160,19 @@ func (registry *Registry) GetDigest(ctx context.Context, repositoryName string, 
 
 func (registry *Registry) validateImageManifest(ctx context.Context, repositoryName string, digest string) error {
 	// Get the manifest content
-	imageRef, err := registry.GetDigest(ctx, repositoryName, digest)
+	manifest, err := registry.GetManifest(ctx, repositoryName, digest)
 	if err != nil {
 		return err
 	}
 
 	// Valid image manifests must have a config with a valid media type
-	if imageRef.Config.MediaType == "" {
+	if manifest.Config.MediaType == "" {
 		return fmt.Errorf("not a valid image manifest: empty config media type")
 	}
 
-	if !slices.Contains(ImageConfigMediaTypes, imageRef.Config.MediaType) {
+	if !slices.Contains(ImageConfigMediaTypes, manifest.Config.MediaType) {
 		return fmt.Errorf("not a valid image manifest: unexpected config media type: %s, expected one of: %v",
-			imageRef.Config.MediaType, ImageConfigMediaTypes)
+			manifest.Config.MediaType, ImageConfigMediaTypes)
 	}
 
 	return nil
@@ -185,7 +186,7 @@ func (registry *Registry) validateImageIndex(ctx context.Context, repositoryName
 	}
 
 	// Check if it's an image index by media type
-	if descriptor.MediaType != MediaTypeDockerManifestList && descriptor.MediaType != MediaTypeOCIImageIndex {
+	if !images.IsIndexType(descriptor.MediaType) {
 		return fmt.Errorf("not a valid image index: unexpected media type: %s", descriptor.MediaType)
 	}
 
@@ -205,7 +206,7 @@ func (registry *Registry) ValidateImageDigest(ctx context.Context, repositoryNam
 		log.Info(ctx, "Validated image manifest")
 	}
 	if sociIndexVersion == "V2" {
-		err := registry.validateImageIndex(ctx, repositoryName, digest)
+		err = registry.validateImageIndex(ctx, repositoryName, digest)
 		if err == nil {
 			log.Info(ctx, "Validated image index")
 			return nil

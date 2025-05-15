@@ -58,6 +58,7 @@ const (
 	ImageDigestKey     contextKey = "ImageDigest"
 	ImageTagKey        contextKey = "ImageTag"
 	SOCIIndexDigestKey contextKey = "SOCIIndexDigest"
+	SociIndexVersion   string     = "soci_index_version"
 )
 
 func HandleRequest(ctx context.Context, event events.ECRImageActionEvent) (string, error) {
@@ -67,7 +68,7 @@ func HandleRequest(ctx context.Context, event events.ECRImageActionEvent) (strin
 	}
 
 	// Get the SOCI index version from environment variable
-	sociIndexVersion := os.Getenv("soci_index_version")
+	sociIndexVersion := os.Getenv(SociIndexVersion)
 	log.Info(ctx, fmt.Sprintf("Using SOCI index version: %s", sociIndexVersion))
 
 	repo := event.Detail.RepositoryName
@@ -325,8 +326,7 @@ func buildIndex(ctx context.Context, dataDir string, sociStore *store.SociStore,
 		return nil, err
 	}
 	builderOpts := []soci.BuilderOption{
-		//soci.WithMinLayerSize(0),
-		soci.WithBuildToolIdentifier("AWS SOCI CLI v0.2"),
+		soci.WithBuildToolIdentifier("AWS SOCI Index Builder Cfn v0.2"),
 		soci.WithArtifactsDb(artifactsDb),
 	}
 
@@ -338,7 +338,7 @@ func buildIndex(ctx context.Context, dataDir string, sociStore *store.SociStore,
 	// Build the SOCI index based on the specified version
 	if sociIndexVersion == "V2" {
 		// Use Convert() for V2 index generation
-		convertedOCIIndex, err := builder.Convert(ctx, image, soci.ConvertWithPlatforms(platform))
+		convertedOCIIndex, err := builder.Convert(ctx, image)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert OCI index: %w", err)
 		}

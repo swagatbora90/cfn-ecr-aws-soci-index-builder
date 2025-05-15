@@ -230,12 +230,6 @@ Resources:
                   - SociIndexGeneratorLambdaId: !Ref SociIndexGeneratorLambda
       Roles:
         - Ref: "SociIndexGeneratorLambdaRole"
-            Resource:
-              - !Sub
-                  - "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${SociIndexGeneratorLambdaId}:*"
-                  - SociIndexGeneratorLambdaId: !Ref SociIndexGeneratorLambda
-      Roles:
-        - Ref: "SociIndexGeneratorLambdaRole"
 
   RepositoryNameParsingLambdaRole:
     Type: AWS::IAM::Role

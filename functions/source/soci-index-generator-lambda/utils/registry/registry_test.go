@@ -65,7 +65,7 @@ func TestHeadManifest(t *testing.T) {
 	doTest("docker.io", "library/redis", "sha256:afd1957d6b59bfff9615d7ec07001afb4eeea39eb341fc777c0caac3fcf52187", expected)
 }
 
-func TestGetDigest(t *testing.T) {
+func TestGetManifest(t *testing.T) {
 	doTest := func(registryUrl string, repository string, digestOrTag string, expected ExpectedResponse) {
 		// making the test context
 		lc := lambdacontext.LambdaContext{}
@@ -76,7 +76,7 @@ func TestGetDigest(t *testing.T) {
 			panic(err)
 		}
 
-		manifest, err := registry.GetDigest(context.Background(), repository, digestOrTag)
+		manifest, err := registry.GetManifest(context.Background(), repository, digestOrTag)
 		if err != nil {
 			panic(err)
 		}
