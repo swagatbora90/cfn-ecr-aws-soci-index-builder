@@ -16,12 +16,19 @@ Parameters:
     Type: CommaDelimitedList
     Default: '*:*'
     AllowedPattern: '^(?:[a-z0-9\*]+(?:[._-][a-z0-9\*]+)*\/)*[a-z0-9\*]+(?:[._-][a-z0-9\*]+)*(?::[a-z0-9\*]+(?:[._-][a-z0-9\*]+)*)$'
+  SociIndexVersion:
+    Description: >
+      The version of SOCI index to generate.
+    Type: String
+    Default: 'V2'
+    AllowedValues:
+      - 'V1'
+      - 'V2'
   QSS3BucketName: 
     AllowedPattern: ^[0-9a-z]+([0-9a-z-\.]*[0-9a-z])*$
     ConstraintDescription: >-
       The S3 bucket name can include numbers, lowercase letters, 
       and hyphens (-), but it cannot start or end with a hyphen.
-    Default: aws-quickstart
     Description: >-
       Name of the S3 bucket for your copy of the deployment assets. Keep the default
       name unless you are customizing the template. Changing the name updates code 
@@ -60,8 +67,9 @@ Metadata:
           default: SOCI Index Builder configuration
         Parameters:
           - SociRepositoryImageTagFilters
+          - SociIndexVersion
       - Label:
-          default: AWS Partner Solution configuration
+          default: Cloudformation Resource configuration
         Parameters:
           - QSS3BucketName
           - QSS3KeyPrefix
@@ -74,17 +82,17 @@ Metadata:
     ParameterLabels:
       SociRepositoryImageTagFilters:
         default: SOCI repository image tag filters
+      SociIndexVersion:
+        default: SOCI index version
       QSS3BucketName:
-        default: Partner Solution S3 bucket name
+        default: S3 bucket name containing cloudformation resources
       QSS3KeyPrefix:
-        default: Partner Solution S3 key prefix
+        default: S3 key prefix
       IamPermissionsBoundaryArn:
         default: IAM Permissions Boundary (optional, default none)
 
 
 Conditions:
-  UsingDefaultBucket: 
-    !Equals [!Ref QSS3BucketName, "aws-quickstart"]
   UsePermissionsBoundary: !Not [!Equals [!Ref IamPermissionsBoundaryArn, "none"]]
 
 Resources:
@@ -99,12 +107,7 @@ Resources:
       Role: !GetAtt ECRImageActionEventFilteringLambdaRole.Arn
       Timeout: 900
       Code:
-        S3Bucket:
-          !If [
-            UsingDefaultBucket,
-            !Sub "${QSS3BucketName}-${AWS::Region}",
-            !Ref QSS3BucketName,
-          ]
+        S3Bucket: !Ref QSS3BucketName
         S3Key: !Sub "${QSS3KeyPrefix}functions/packages/ecr-image-action-event-filtering/lambda.zip"
       Environment:
         Variables:
@@ -200,16 +203,14 @@ Resources:
       Role: !GetAtt SociIndexGeneratorLambdaRole.Arn
       Timeout: 900
       Code:
-        S3Bucket:
-          !If [
-            UsingDefaultBucket,
-            !Sub "${QSS3BucketName}-${AWS::Region}",
-            !Ref QSS3BucketName,
-          ]
+        S3Bucket: !Ref QSS3BucketName
         S3Key: !Sub "${QSS3KeyPrefix}functions/packages/soci-index-generator-lambda/soci_index_generator_lambda.zip"
       EphemeralStorage:
         Size: 10240  # 10GB - default is 512MB
       MemorySize: 1024
+      Environment:
+        Variables:
+          soci_index_version: !Ref SociIndexVersion
 
   SociIndexGeneratorLambdaCloudwatchPolicy:
     Type: AWS::IAM::Policy
