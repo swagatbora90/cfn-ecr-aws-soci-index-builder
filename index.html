@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="generator" content="Asciidoctor 2.0.17">
+<meta name="generator" content="Asciidoctor 2.0.23">
 <meta name="description" content="CFN AWS SOCI Index Builder Deployment Guide on AWS">
 <meta name="keywords" content="Partner Solution, AWS, CFN AWS SOCI Index Builder">
 <title>CFN AWS SOCI Index Builder on AWS</title>
@@ -850,18 +850,53 @@ p.footer-text a{color:#d7d8d8}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
 <body class="book toc2 toc-left">
+<div class="version-selector">
+  <select id="version-select" onchange="window.location.href=this.value">
+    <option value="" id="latest-option">Latest (V2)</option>
+    <option value="" id="v1-option">V1</option>
+  </select>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const path = window.location.pathname;
+    const latestOption = document.getElementById('latest-option');
+    const v1Option = document.getElementById('v1-option');
+
+    // If we're in the v1 directory
+    if (path.includes('/v1/')) {
+      v1Option.selected = true;
+      latestOption.value = "../";
+      v1Option.value = "./";
+    }
+    // If we're in the main directory
+    else {
+      latestOption.selected = true;
+      latestOption.value = "./";
+      v1Option.value = "./v1/";
+    }
+  });
+</script>
+
+<style>
+  .version-selector {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    z-index: 1000;
+  }
+
+  .version-selector select {
+    padding: 3px 5px;
+    border-radius: 3px;
+    font-size: 0.8em;
+    border: 1px solid #ccc;
+    background-color: #f8f9fa;
+  }
+</style>
 <div id="header">
 <div id="toc" class="toc2">
-<div id="toctitle">
-  <!-- Version Selector - Moved to toctitle section -->
-  <div class="version-selector">
-    <label for="version-select">Version:</label>
-    <select id="version-select" onchange="window.location.href=this.value">
-      <option value="/cfn-ecr-aws-soci-index-builder/" id="latest-option" selected>Latest</option>
-      <option value="/cfn-ecr-aws-soci-index-builder/v1/" id="v1-option">Legacy (V1)</option>
-    </select>
-  </div>
-</div>
+<div id="toctitle"></div>
 <ul class="sectlevel1">
 <li><a href="#_overview">Overview</a></li>
 <li><a href="#_costs_and_licenses">Costs and licenses</a></li>
@@ -883,51 +918,6 @@ p.footer-text a{color:#d7d8d8}
 <div class="sectionbody">
 <h2 id="_cfn_aws_soci_index_builder_on_aws" class="discrete text-center">CFN AWS SOCI Index Builder on AWS</h2>
 <h2 id="_partner_solution_deployment_guide" class="discrete text-left text-center">Partner Solution Deployment Guide</h2>
-
-<style>
-  .version-selector {
-    padding: 3px;
-    background-color: #283e5b;
-    color: #fff;
-    border-radius: 3px;
-    z-index: 1000;
-    font-size: 0.75em;
-    margin-top: 4px;
-    text-align: center;
-    width: 70%;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  
-  .version-selector label {
-    color: #fff;
-    margin-right: 3px;
-    font-size: 0.85em;
-  }
-  
-  .version-selector select {
-    padding: 1px;
-    border-radius: 2px;
-    background-color: #fff;
-    color: #283e5b;
-    border: none;
-    font-size: 0.85em;
-  }
-</style>
-
-<script>
-  // Set the correct option based on current path
-  document.addEventListener('DOMContentLoaded', function() {
-    const path = window.location.pathname;
-    const select = document.getElementById('version-select');
-    
-    if (path.includes('/v1/')) {
-      document.getElementById('v1-option').selected = true;
-    } else {
-      document.getElementById('latest-option').selected = true;
-    }
-  });
-</script>
 <div class="imageblock text-center">
 <div class="content">
 <img src="https://aws-quickstart.s3.amazonaws.com/docs/deployment-guide/aws-quickstart-deployment-graphic.png" alt="QS" width="80" height="80">
@@ -1378,17 +1368,10 @@ A SOCI index will not be generated for an image if every layer in the image is u
 <footer>
     <p class="footer-text">
         <!-- We can use document attributes: -->
-        <!-- Generated with Asciidoctor v2.0.17. -->
+        <!-- Generated with Asciidoctor v2.0.23. -->
         <a href="https://aws.amazon.com/privacy/">Privacy</a> | <a href="https://aws.amazon.com/terms/">Site terms</a> |
-        &copy; 2023, Amazon Web Services, Inc. or its affiliates and Amazon. All rights reserved.
+        &copy; 2025, Amazon Web Services, Inc. or its affiliates and Amazon. All rights reserved.
     </p>
 </footer>
 </body>
 </html>
-<!--
-repo commit:
-cdc0ea02b82ce0cd4f7c123dd81fd2278d6ba161
-
-submodule config:
- 897d0a2f9b90fcdbc9520a2d0d44558d485a5b1e docs/boilerplate (897d0a2)
--->
