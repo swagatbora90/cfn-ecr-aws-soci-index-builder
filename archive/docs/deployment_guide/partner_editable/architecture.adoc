@@ -1,0 +1,24 @@
+:xrefstyle: short
+
+Deploying this solution with default parameters builds the following {partner-product-short-name} environment in the
+AWS Cloud.
+
+// Replace this example diagram with your own. Follow our wiki guidelines: https://w.amazon.com/bin/view/AWS_Quick_Starts/Process_for_PSAs/#HPrepareyourarchitecturediagram. Upload your source PowerPoint file to the GitHub {deployment name}/docs/images/ directory in its repository.
+
+[#architecture1]
+.Solution architecture for {partner-product-short-name} on AWS
+image::../docs/deployment_guide/images/aws_cfn_soci_index_builder_architecture_diagram.png[Architecture]
+
+As shown in <<architecture1>>, this solution sets up the following:
+
+* An Amazon Elastic Container Registry (Amazon ECR) to store container images and SOCI artifacts.
+* An AWS CloudFormation stack that contains the following resources:
+** An Amazon EventBridge rule to detect Amazon ECR image action events and invoke the filtering AWS Lambda function.
+** Two AWS Lambda functions to do the following:
+*** Filter Amazon ECR image action events that match the filters provided in the CloudFormation stack parameters.
+*** Generate SOCI indices for matching images and push indices back to image repositories in the Amazon ECR registry.
+** AWS Identity and Access Management (IAM) to provide the following permissions:
+*** EventBridge to invoke the filtering Lambda function.
+*** Filtering Lambda function to create Amazon CloudWatch logs and to invoke the SOCI index generator Lambda function.
+*** SOCI index generator Lambda function to create CloudWatch logs and access the Amazon ECR registry.
+* CloudWatch to collect logs from both Lambda functions for troubleshooting.
