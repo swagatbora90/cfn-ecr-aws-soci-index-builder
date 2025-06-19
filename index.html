@@ -1104,6 +1104,7 @@ tests:
   can-deploy:
     parameters:
       SociRepositoryImageTagFilters: "*:*"
+      SociIndexVersion: "V2"
     regions:
       - us-east-1      # US East (N. Virginia)
       - eu-west-1      # Europe (Ireland)
@@ -1181,7 +1182,7 @@ tests:
     # stack_name_suffix: "SufficStackName"
     parameters:
       SociRepositoryImageTagFilters: "*:*"
-      SociIndexVersion: "V1"
+      SociIndexVersion: "V2"
     regions:
       - us-east-1
     template: templates/SociIndexBuilder.yml</code></pre>
@@ -1406,6 +1407,17 @@ tests:
 <li>
 <p>On the <strong>Specify stack details</strong> page, provide a stack name.
 Review the parameters for the template. Provide values for the parameters that require input, particularly the S3 bucket name (starting with <code>tcat-</code>) created during the taskcat upload step.</p>
+<div class="imageblock">
+<div class="content">
+<img src="docs/deployment_guide/images/stack_details.png" alt="Stack details example">
+</div>
+</div>
+</li>
+</ol>
+</div>
+<div class="paragraph">
+<p>The CloudFormation template includes the following parameters:</p>
+</div>
 <div class="ulist">
 <ul>
 <li>
@@ -1417,25 +1429,10 @@ Review the parameters for the template. Provide values for the parameters that r
 </li>
 <li>
 <p>V1 - Legacy version for backward compatibility</p>
-<div class="imageblock">
-<div class="content">
-<img src="docs/deployment_guide/images/stack_details.png" alt="Stack details example">
-</div>
-</div>
 </li>
 </ul>
 </div>
 </li>
-</ul>
-</div>
-</li>
-</ol>
-</div>
-<div class="paragraph">
-<p>The CloudFormation template includes the following parameters:</p>
-</div>
-<div class="ulist">
-<ul>
 <li>
 <p><strong>SociRepositoryImageTagFilters:</strong> Comma-separated list of SOCI repository image tag filters. Each filter is a repository name followed by a colon, ":" and followed by a tag. Both repository names and tags may contain wildcards denoted by an asterisk, "*".
 For example, <code>prod/*:latest</code> matches all images tagged with "latest" that are pushed to any repositories that start with "prod", while <code>"dev:*"</code> matches all images pushed to the "dev" repository. Use <code>"*:*"</code> to match all images pushed to all repositories in your private registry.</p>
@@ -1576,7 +1573,7 @@ A SOCI index will not be generated for an image if every layer in the image is u
 <h2 id="_feedback">Feedback</h2>
 <div class="sectionbody">
 <div class="paragraph">
-<p>To submit feature ideas and report bugs, use the <strong>Issues</strong> section of <a href="https://github.com/awslabs/cfn-ecr-aws-soci-index-builder" target="_blank" rel="noopener">GitHub repository</a>. To submit feedback on this deployment guide, use the following GitHub links:</p>
+<p>To submit feature ideas and report bugs, use the <strong>Issues</strong> section of the <a href="https://github.com/awslabs/cfn-ecr-aws-soci-index-builder" target="_blank" rel="noopener">GitHub repository</a>. To submit feedback on this deployment guide, use the following GitHub links:</p>
 </div>
 <div class="ulist">
 <ul>
