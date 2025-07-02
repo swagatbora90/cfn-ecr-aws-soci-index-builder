@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Monitor Go dependencies in the SOCI Index Generator Lambda
+  - package-ecosystem: "gomod"
+    directory: "/functions/source/soci-index-generator-lambda"
+    schedule:
+      interval: "daily"
+
+  # Monitor GitHub Actions dependencies (for future workflows)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+
+  # Monitor Docker dependencies in Dockerfiles
+  - package-ecosystem: "docker"
+    directory: "/functions/source/soci-index-generator-lambda"
+    schedule:
+      interval: "daily"
