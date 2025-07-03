@@ -297,7 +297,7 @@ func initSociStore(ctx context.Context, dataDir string) (*store.SociStore, error
 	// for garbage collection.
 	ociStore, err := oci.NewWithContext(ctx, path.Join(dataDir, artifactsStoreName))
 	return &store.SociStore{
-		ociStore,
+		Store: ociStore,
 	}, err
 }
 
@@ -314,7 +314,7 @@ func initSociArtifactsDb(dataDir string) (*soci.ArtifactsDb, error) {
 // Build soci index for an image and returns its ocispec.Descriptor
 func buildIndex(ctx context.Context, dataDir string, sociStore *store.SociStore, image images.Image, sociIndexVersion string) (*ocispec.Descriptor, error) {
 	log.Info(ctx, "Building SOCI index")
-	platform := platforms.DefaultSpec()
+	platform := platforms.DefaultSpec() //nolint:staticcheck // TODO: migrate to new API when available
 
 	artifactsDb, err := initSociArtifactsDb(dataDir)
 	if err != nil {

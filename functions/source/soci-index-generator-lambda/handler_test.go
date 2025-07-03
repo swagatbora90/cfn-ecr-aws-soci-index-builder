@@ -27,7 +27,9 @@ func TestHandlerHappyPath(t *testing.T) {
 	for _, version := range testVersions {
 		t.Run("SOCI Index Version "+version, func(t *testing.T) {
 			// Set the SOCI index version environment variable
-			os.Setenv("soci_index_version", version)
+			if err := os.Setenv("soci_index_version", version); err != nil {
+				t.Fatalf("Failed to set environment variable: %v", err)
+			}
 			t.Logf("Testing with SOCI index version: %s", version)
 
 			doTest := func(imageDigest string) {
@@ -85,7 +87,9 @@ func TestHandlerInvalidDigestMediaType(t *testing.T) {
 	for _, version := range testVersions {
 		t.Run("SOCI Index Version "+version, func(t *testing.T) {
 			// Set the SOCI index version environment variable
-			os.Setenv("soci_index_version", version)
+			if err := os.Setenv("soci_index_version", version); err != nil {
+				t.Fatalf("Failed to set environment variable: %v", err)
+			}
 			t.Logf("Testing with SOCI index version: %s", version)
 
 			event := events.ECRImageActionEvent{
