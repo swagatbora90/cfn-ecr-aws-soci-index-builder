@@ -47,7 +47,7 @@ type Registry struct {
 	registry *remote.Registry
 }
 
-var RegistryNotSupportingOciArtifacts = errors.New("Registry does not support OCI artifacts")
+var ErrRegistryNotSupportingOciArtifacts = errors.New("Registry does not support OCI artifacts")
 
 // Initialize a remote registry
 func Init(ctx context.Context, registryUrl string) (*Registry, error) {
@@ -99,7 +99,7 @@ func (registry *Registry) Push(ctx context.Context, sociStore *store.SociStore, 
 		// TODO: There might be a better way to check if a registry supporting OCI or not
 		if strings.Contains(err.Error(), "Response status code 405: unsupported: Invalid parameter at 'ImageManifest' failed to satisfy constraint: 'Invalid JSON syntax'") {
 			log.Warn(ctx, fmt.Sprintf("Error when pushing: %v", err))
-			return RegistryNotSupportingOciArtifacts
+			return ErrRegistryNotSupportingOciArtifacts
 		}
 		return err
 	}
@@ -237,9 +237,17 @@ func authorizeEcr(ecrRegistry *remote.Registry) error {
 	var ecrClient *ecr.ECR
 	ecrEndpoint := os.Getenv("ECR_ENDPOINT") // set this env var for custom, i.e. non default, aws ecr endpoint
 	if ecrEndpoint != "" {
-		ecrClient = ecr.New(session.New(&aws.Config{Endpoint: aws.String(ecrEndpoint)}))
+		sess, err := session.NewSession(&aws.Config{Endpoint: aws.String(ecrEndpoint)})
+		if err != nil {
+			return err
+		}
+		ecrClient = ecr.New(sess)
 	} else {
-		ecrClient = ecr.New(session.New())
+		sess, err := session.NewSession()
+		if err != nil {
+			return err
+		}
+		ecrClient = ecr.New(sess)
 	}
 	getAuthorizationTokenResponse, err := ecrClient.GetAuthorizationToken(input)
 	if err != nil {
@@ -247,15 +255,15 @@ func authorizeEcr(ecrRegistry *remote.Registry) error {
 	}
 
 	if len(getAuthorizationTokenResponse.AuthorizationData) == 0 {
-		return errors.New("Couldn't authorize with ECR: empty authorization data returned")
+		return errors.New("couldn't authorize with ECR: empty authorization data returned")
 	}
 
 	ecrAuthorizationToken := getAuthorizationTokenResponse.AuthorizationData[0].AuthorizationToken
 	if len(*ecrAuthorizationToken) == 0 {
-		return errors.New("Couldn't authorize with ECR: empty authorization token returned")
+		return errors.New("couldn't authorize with ECR: empty authorization token returned")
 	}
 
-	ecrRegistry.RepositoryOptions.Client = &auth.Client{
+	ecrRegistry.Client = &auth.Client{
 		Header: http.Header{
 			"Authorization": {"Basic " + *ecrAuthorizationToken},
 			"User-Agent":    {"SOCI Index Builder (oras-go)"},
