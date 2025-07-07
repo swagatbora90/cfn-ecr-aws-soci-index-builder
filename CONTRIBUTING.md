@@ -17,7 +17,7 @@ __Note: Repo url is within your git user namespace so you will have write access
 Add your code to /template/`name_of_cfntemplate.yaml`
 
 ### 3. Setting up testing toolkit (recommended)
-3a. Setup a python env (3.8.x <3.9).
+3a. Setup a python env.
 
 3b. Setup a default aws profile
 
