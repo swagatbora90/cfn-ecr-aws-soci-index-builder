@@ -11,7 +11,7 @@ require (
 	github.com/containerd/containerd v1.7.27
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/rs/zerolog v1.34.0
-	golang.org/x/sys v0.33.0
+	golang.org/x/sys v0.34.0
 	oras.land/oras-go/v2 v2.6.0
 )
 
