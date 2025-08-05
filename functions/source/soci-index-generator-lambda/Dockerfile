@@ -1,14 +1,19 @@
-FROM golang:1.24
+FROM golang:1.24-alpine AS builder
 
-RUN apt-get -y update
-RUN apt-get -y install python3-pip make git zip gcc g++ zlib1g zlib1g-dev
-
-COPY . /build
+# Install only essential build dependencies
+RUN apk add --no-cache \
+    make \
+    git \
+    zip \
+    gcc \
+    musl-dev \
+    zlib-dev \
+    zlib-static
 
 WORKDIR /build
 
-RUN GOPROXY=direct go mod download
+COPY . .
 
-RUN GOPROXY=direct make -f Makefile
+RUN make -f Makefile
 
 CMD mkdir -p /output/ && mv /build/soci_index_generator_lambda.zip /output/
